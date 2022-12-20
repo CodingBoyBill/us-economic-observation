@@ -15,40 +15,26 @@ def data2sql(data,code):
     db = sqlite3.connect("us_finance.sqlite")
     cur = db.cursor()
     cur.execute("""CREATE TABLE IF NOT EXISTS usfinanceDaily \
-                   (DateD TEXT PRIMARY KEY, SP500 REAL, USD REAL, VIX REAL, FR REAL) """)
+                   (DateD TEXT PRIMARY KEY, SP500 REAL, USD REAL, VIX REAL) """)
     cur.execute("""CREATE TABLE IF NOT EXISTS usfinanceMonthly \
                    (Indexx INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \
                     DateM TEXT, CPI REAL, CCI REAL, UR REAL) """)
-    if code == 'SP500':
-        data.to_sql('usfinanceDaily', db, if_exists='append', index=False)
+    if code == 'D':
+        print(' updating daily data.... ')
+        data.to_sql('usfinanceDaily', db, if_exists='replace', index=False)
         db.close()
-    elif code == 'CPI':
-        data.to_sql('usfinanceMonthly', db, if_exists='append', index=False)
-        db.close()
-    elif code in ['CCI','UR']:
-        for row,index in zip(data.iloc[:,1],[i for i in range(1,len(data.iloc[:,1])+1)]):
-            cur.execute(f"""UPDATE usfinanceMonthly SET {code} = {row} WHERE Indexx = {index}""")
-            print(f"""UPDATE usfinanceMonthly SET {code} = {row} WHERE Indexx = {index}""")
-        db.commit()
+    elif code == 'M':
+        print(' updating monthly data.... ')
+        data.to_sql('usfinanceMonthly', db, if_exists='replace', index=False)
         db.close()
 
-    elif code in ['USD','VIX','FR']:
-        for row,index in zip(data.iloc[:,1],data.iloc[:,0]):
-            cur.execute(f"""UPDATE usfinanceDaily SET {code} = {row} WHERE DateD = '{index}'""")
-            print(f"""UPDATE usfinanceDaily SET {code} = {row} WHERE DateD = '{index}'""")
-        db.commit()    
-        if code == "FR":
-            fill = cur.execute('''SELECT DateD,FR FROM usfinanceDaily''').fetchall()
-            fill = pd.DataFrame(fill,columns=['DateD','FR'])
-            fill.fillna(method='pad',inplace=True)
-            fill.fillna(method='bfill',inplace=True)
-            for row,index in zip(fill.iloc[:,1],fill.iloc[:,0]):
-                print(f"""UPDATE usfinanceDaily SET {code} = {row} WHERE DateD = '{index}'""")
-                cur.execute(f"""UPDATE usfinanceDaily SET {code} = {row} WHERE DateD = '{index}'""")
-        db.commit()
+    elif code == "OT":
+        print(' updating other data.... ')
+        data.to_sql('FFR', db, if_exists='replace', index=False)
         db.close()
 
 if __name__ == "__main__":
-    code = 'fr'
+    code = 'OT'
     data = crawler.uscrawler(code)
+    print(data)
     data2sql(data,code)

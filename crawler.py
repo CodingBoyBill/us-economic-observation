@@ -26,64 +26,75 @@ def uscrawler(code):
     header = {
             "Content-Type":"application/json",#; charset=UTF-8",
             "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"}
-    url = [ "https://sbcharts.investing.com/events_charts/us/48.json", #CCI
-        "https://sbcharts.investing.com/events_charts/us/733.json", #CPI
-        "https://sbcharts.investing.com/events_charts/us/168.json", #FFR
-        "https://sbcharts.investing.com/events_charts/us/300.json" #UR
+    urls = [ "https://sbcharts.investing.com/events_charts/us/733.json", #CPI
+        "https://sbcharts.investing.com/events_charts/us/48.json", #CCI
+        "https://sbcharts.investing.com/events_charts/us/300.json", #UR
+        "https://sbcharts.investing.com/events_charts/us/168.json" #FFR
         ]
-    # Unit 1-0 : Crawler Part : yfinance
-    if code in ["SP500","USD","VIX"]:
-        if code == "SP500": yfid="^GSPC"
-        elif code == "USD": yfid="DX-Y.NYB"
-        elif code == "VIX": yfid="^VIX"
+    # Unit 1-0 : Crawler Part : yfinance (Daily data)
+    if code == "D": #in ["SP500","USD","VIX"]:
+        dailydata = pd.DataFrame()#columns=["DateD","SP500","USD","VIX"]
+        ii = 0
+        for c,yfid in zip(["SP500","USD","VIX"],["^GSPC","DX-Y.NYB","^VIX"]):
+            import yfinance as yf
+            sp500 = yf.download(yfid,"2005-01-19",time.strftime('%Y-%m-%d'))
+            close = sp500.iloc[:,3]
+            close = close.reset_index()
+            close["Date"] = time2str(close["Date"])
+            for i in range(len(close.iloc[:,0])):
+                close.iloc[i,0] = str(close.iloc[i,0])
+            close.rename(columns={"Date":"DateD","Close":c},inplace=True)
+            if ii == 0:
+                dailydata = pd.merge(dailydata,close,'right',left_index=True,right_index=True)
+                ii = 1 
+            else:
+                dailydata = pd.merge(dailydata,close,'left','DateD')
+        return dailydata.round(2) #dataframe
 
-        import yfinance as yf
-        sp500 = yf.download(yfid,"2005-01-19",time.strftime('%Y-%m-%d'))
-        close = sp500.iloc[:,3]
-        close = close.reset_index()
-        close["Date"] = time2str(close["Date"])
-        for i in range(len(close.iloc[:,0])):
-            close.iloc[i,0] = str(close.iloc[i,0])
-        close.rename(columns={"Date":"DateD","Close":code},inplace=True)
-        return close #dataframe
-        
-    # Unit 1-1 : Crawler Part : JSON API    
-    
-    elif code in ['USD',"VIX"]:
-        with open(code+".json") as f:
-            get = json.load(f)
-            get = get["data"]
-        data = []
-        for i in range(len(get)):
-            get[i][0] = get[i][0]/1000 #原資料為毫秒，需除以1000換為秒
-            if 1666569600>get[i][0]>1106006400: # 2005-01-19 ~ 2022-10-23
-                t = time.localtime(get[i][0]) 
-                ts = time.strftime("%Y-%m-%d", t) #轉為字串
-                data.append([ts,get[i][4]])
-        data = pd.DataFrame(data,columns=['DateD',code])
-        return data 
+    # Unit 1-2 : Crawler Part : Web (monthly&other)
 
-    # Unit 1-2 : Crawler Part : Web
+    elif code == "M":
+        monthlydata = pd.DataFrame()#columns=["DateD","SP500","USD","VIX"]
+        ii = 0
+        for c,url in zip(["CPI","CCI","UR"],urls[0:3]):
+            resp = req.Request(url,headers=header)
+            with req.urlopen(resp) as res:
+                result = res.read().decode("utf-8")
+            result = json.loads(result)
+            data = result["data"]
+            data = stemp2str(data)
+            data = pd.DataFrame(data,columns=["DateM",c])
+            if ii == 0:
+                monthlydata = pd.merge(monthlydata,data,'right',left_index=True,right_index=True)
+                ii = 1
+            else:
+                monthlydata = pd.concat([monthlydata,data.iloc[:,1]],1,'outer',True)
+                monthlydata.fillna(method="pad",inplace=True)
 
-    elif code == "CCI":
-        url = url[0]    
-    elif code == "CPI":
-        url = url[1]
-    elif code == "FR":
-        url = url[2]
-    elif code == "UR":
-        url = url[3]
-    resp = req.Request(url,headers=header)
-    with req.urlopen(resp) as res:
-        result = res.read().decode("utf-8")
-    result = json.loads(result)
-    data = result["data"]
-    data = stemp2str(data)
-    data = pd.DataFrame(data,columns=['DateM',code])
-    return data
+        monthlydata.columns = ["DateM","CPI","CCI","UR"]
+        return monthlydata.round(2)
+
+    elif code == "OT":
+        url = urls[3]
+        c = 'FFR'
+        resp = req.Request(url,headers=header)
+        with req.urlopen(resp) as res:
+            result = res.read().decode("utf-8")
+        result = json.loads(result)
+        data = result["data"]
+        data = stemp2str(data)
+        ffr = pd.DataFrame(data,columns=["dates",c])
+        return ffr.round(2)     
 
 if __name__ == '__main__':
-    code = input("SP500/CPI/CCI/UR/VIX/FR/USD")
-    data = uscrawler(code)
-    print(data)
-    print(type(data))
+    for code in["M","D","OT"]:
+        code = code.upper()
+        if code == 'M':
+            monthly = uscrawler("M")
+            print(monthly)
+        elif code == 'D':
+            daily = uscrawler('D')
+            print(daily)
+        elif code == 'OT':
+            ffr = uscrawler("ot")
+            print(ffr)

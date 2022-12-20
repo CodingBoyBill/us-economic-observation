@@ -6,7 +6,6 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib import pyplot as plt
 from matplotlib import style
 
-
 import sqlite3
 # import mainprocess
 import pandas as pd
@@ -18,20 +17,21 @@ from tkinter import messagebox
 from tkinter import ttk
 
 title_font = ("Times New Roman",50,'bold')
-subtitle_font = ("Times New Roman",20,'bold')
-large_font = {"Times New Roman":15}
+subtitle_font = ("Times New Roman",30,'bold')
+large_font = ("Times New Roman",15)
 style.use('ggplot')
 indexlist = ['SP500','CPI','CCI','USD','UR','FFR','VIX','clear']
 
-# def dataupdate():
-#     mainprocess.main()
+def dataupdate():
+    import mainprocess
+    mainprocess.main()
 
 def plotdata():        
     db = sqlite3.connect('us_finance.sqlite')
     cur = db.cursor()
     data = cur.execute("""SELECT * FROM plot""").fetchall()
     db.close()
-    data = pd.DataFrame(data,columns=['DATE','SP500','USD','VIX','FFR','CCI','CPI','UR'])
+    data = pd.DataFrame(data,columns=['DATE','SP500','USD','VIX','CCI','CPI','UR','FFR'])
     return data
 
 def popupmsg(msg):
@@ -84,7 +84,7 @@ class USfinance(tk.Tk):
         super().__init__(*args, **kwargs) #本行意義即為，self = Tk() 
         self.geometry('1200x800') 
         self.iconbitmap(self,'icon.ico') #設定程式圖樣
-        self.title('US Finance Observation') #設定程式名稱
+        self.title('US Economic Observation') #設定程式名稱
 
 
         container = tk.Frame(self)
@@ -101,7 +101,7 @@ class USfinance(tk.Tk):
         menubar.add_cascade(label='File', menu=filemenu)
 
         datamenu = tk.Menu(menubar, tearoff=1)
-        datamenu.add_command(label='data update', command= lambda: popupmsg("Not suppoerted just yet!"))
+        datamenu.add_command(label='data update', command=lambda:dataupdate())
         menubar.add_cascade(label='data', menu=datamenu)
 
         tutmenu = tk.Menu(menubar, tearoff=1)
@@ -112,7 +112,7 @@ class USfinance(tk.Tk):
 
         self.frames = {}
         for i in [StartPage,PageGraph1,PageGraph2]: #,PageOne,Page2,TestPage
-            frame = i(container, self)
+            frame = i(container, self) #StartPage(container, self)
             self.frames[i] = frame
 
             frame.grid(row=0, column=0, sticky="nsew")
@@ -133,9 +133,9 @@ class StartPage(tk.Frame):
         super().__init__(parent)
         label1 = tk.Label(self, text="US Economic Observations", font=title_font)
         label1.pack(pady=10, padx=10)
-        label2 = tk.Label(self, text="Plotting Chart Application", font=subtitle_font)
+        label2 = tk.Label(self, text="Chart Plotting Application", font=subtitle_font)
         label2.pack(pady=10, padx=10)
-        label6 = tk.Label(self, text="How Many Lines Overlap on Your Chart ?", font=large_font)
+        label6 = tk.Label(self, text="How Many Overlapped Lines on Your Chart?", font=large_font)
         label6.pack(pady=10, padx=10)
         
         # btn1 = ttk.Button(self, text='Test', command=lambda: controller.show_frame(TestPage))
@@ -201,13 +201,13 @@ class PageGraph1(tk.Frame):
     
     def __init__(self, parent, controller):
         super().__init__(parent)
-        label = tk.Label(self, text="Page Graph", font=large_font)
+        label = tk.Label(self, text="Single Line Chart", font=subtitle_font)
         label.pack(pady=10, padx=10)
 
         self.data = plotdata()
 
         btn1 = ttk.Button(self, text='Back To Home', command=lambda: controller.show_frame(StartPage))
-        btn1.pack()
+        btn1.pack(side="bottom")
         btn2 = ttk.Button(self, text='I Want Two Lines!', command=lambda: controller.show_frame(PageGraph2))
         btn2.pack()
         cb1 = ttk.Combobox(self, values=indexlist)
@@ -247,11 +247,11 @@ class PageGraph1(tk.Frame):
 class PageGraph2(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-        label = tk.Label(self, text="Page Graph", font=large_font)
+        label = tk.Label(self, text="Double Line Chart", font=subtitle_font)
         label.pack(pady=10, padx=10)
 
         btn1 = ttk.Button(self, text='Back To Home', command=lambda: controller.show_frame(StartPage))
-        btn1.pack()       
+        btn1.pack(side="bottom")       
         btn2 = ttk.Button(self, text='I Want One Line!', command=lambda: controller.show_frame(PageGraph1))
         btn2.pack()
         cb1 = ttk.Combobox(self, values=indexlist)
@@ -272,7 +272,7 @@ class PageGraph2(tk.Frame):
         # self.canvas.draw() # show----->draw
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        toolbar.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True) #
 
     def plot(self,a,b):
@@ -297,9 +297,6 @@ class PageGraph2(tk.Frame):
             self.canvas.draw()
         except:
             self.canvas.draw()
-        
-
-        
         
 
 
